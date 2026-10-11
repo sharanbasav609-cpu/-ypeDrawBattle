@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Type & Draw Battle - Animated</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+    <button id="mic-btn" class="mic-btn muted" title="Voice Chat">🎤 <span class="mic-status">Muted</span></button>
+    <div id="voice-chat-status" style="position: fixed; top: 70px; right: 20px; color: #aaa; font-size: 0.8rem; text-align: right; z-index: 1000;">Voice Chat disconnected</div>
+
+    <div class="audio-controls" style="position: fixed; bottom: 20px; left: 20px; z-index: 1000; display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 20px; border: 1px solid #555;">
+        <button id="audio-btn" style="padding: 5px 15px; font-size: 1.2rem; font-family: var(--font-ui); background: #00ff88; color: #000; border: none; border-radius: 10px; cursor: pointer; transition: all 0.2s;">🔊 ON</button>
+        <input type="range" id="volume-slider" min="0" max="100" value="50" style="width: 100px; cursor: pointer;" title="Volume">
+    </div>
+
+    <div id="app">
+        <!-- HOME SCREEN -->
+        <div id="home-screen" class="screen active">
+            <h1 class="logo" style="margin-bottom: 0;">TYPE DRAW BATTLE</h1>
+            <div class="prototype-badge" style="background: #00ff88;">Real Online Multiplayer!</div>
+            
+            <div id="connection-panel" class="settings-box" style="margin: 20px auto; max-width: 500px;">
+                <h2 style="color: #00e5ff;">MULTIPLAYER LOBBY</h2>
+                <div id="lobby-controls">
+                    <input type="text" id="player-name-input" placeholder="Your Name" style="margin-bottom: 20px; text-align: center;">
+                    <br>
+                    <button id="create-room-btn" class="action-btn" style="font-size: 1.2rem; padding: 10px 20px;">CREATE ROOM</button>
+                    <div style="margin: 15px 0; color: #fff;">- OR -</div>
+                    <input type="text" id="room-code-input" placeholder="ENTER ROOM CODE" style="margin-bottom: 10px; text-transform: uppercase; text-align: center; font-weight: bold;">
+                    <br>
+                    <button id="join-room-btn" class="action-btn" style="font-size: 1.2rem; padding: 10px 20px; background: #555; box-shadow: 0 4px 0 #222;">JOIN ROOM</button>
+                    <div id="lobby-error" style="color: #ff3366; margin-top: 10px;"></div>
+                </div>
+                
+                <div id="room-info" class="hidden">
+                    <h3 style="color: #00ff88; font-size: 1.5rem; margin-bottom: 10px;">Room Code: <span id="display-room-code" style="background: #111; padding: 5px 10px; border-radius: 5px; border: 1px solid #00ff88; user-select: all;"></span></h3>
+                    <p style="font-size: 1.2rem; margin-bottom: 20px;">Status: <span id="room-status" style="color: #ffd700;">Waiting for Player 2...</span></p>
+                    <div id="players-list" style="margin-bottom: 20px; text-align: left; padding: 15px; background: rgba(0,0,0,0.5); border-radius: 5px;"></div>
+                    <button id="ready-btn" class="action-btn hidden" style="margin-bottom: 20px; width: 100%;">READY UP</button>
+                </div>
+            </div>
+            
+            <div class="mode-selection hidden" id="mode-selection" style="flex-direction: column; align-items: center;">
+                <h3 style="margin-bottom: 15px; color: #ffd700;">Host: Select Game Mode</h3>
+                <div style="display: flex; gap: 20px;">
+                    <div class="mode-card" id="btn-typing-fight">
+                        <h2>🥊 TYPING FIGHT</h2>
+                        <p>Real-time typing! Animated cartoon combat.</p>
+                    </div>
+                    <div class="mode-card" id="btn-draw-guess">
+                        <h2>🎨 DRAW & GUESS</h2>
+                        <p>One draws, the other guesses. Real-time sync!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TYPING FIGHT SCREENS -->
+        <div id="tf-battle-screen" class="screen">
+            <div class="hud">
+                <div class="player-hud p1-hud">
+                    <div class="player-name" id="tf-p1-name">PLAYER 1</div>
+                    <div class="health-bar-bg"><div id="tf-p1-health" class="health-bar"></div></div>
+                    <div class="progress-bar-bg"><div id="tf-p1-progress" class="progress-bar" style="background: #00e5ff;"></div></div>
+                    <div class="stats">WPM: <span id="tf-p1-wpm">0</span> | Acc: <span id="tf-p1-acc">100</span>%</div>
+                </div>
+                
+                <div class="match-info">
+                    <div id="tf-timer">60</div>
+                    <div class="ko-text" style="font-size: 0.6rem;">COMPLETE THE SENTENCE!</div>
+                </div>
+
+                <div class="player-hud p2-hud">
+                    <div class="player-name" id="tf-p2-name">PLAYER 2</div>
+                    <div class="health-bar-bg"><div id="tf-p2-health" class="health-bar" style="float: right;"></div></div>
+                    <div class="progress-bar-bg"><div id="tf-p2-progress" class="progress-bar" style="background: #ff3366; float: right;"></div></div>
+                    <div class="stats">WPM: <span id="tf-p2-wpm">0</span> | Acc: <span id="tf-p2-acc">100</span>%</div>
+                </div>
+            </div>
+
+            <div class="arena" id="tf-arena">
+                <!-- Fighters -->
+                <div id="tf-player1" class="fighter">
+                    <div class="fighter-inner"></div>
+                </div>
+                
+                <div class="challenge-container" style="top: 5%; width: 70%; padding: 20px; background: rgba(0,0,0,0.85);">
+                    <div id="tf-sentence-display" style="font-size: 1.4rem; text-align: left; line-height: 1.6; letter-spacing: 1px;"></div>
+                </div>
+
+                <div id="tf-player2" class="fighter">
+                    <div class="fighter-inner"></div>
+                </div>
+
+                <!-- Comic Effects -->
+                <div id="tf-comic-p1" class="comic-text" style="left: 20%; top: 30%;"></div>
+                <div id="tf-comic-p2" class="comic-text" style="right: 20%; top: 30%;"></div>
+            </div>
+
+            <div class="controls" style="justify-content: center; height: 120px;">
+                <div class="input-group" id="tf-my-input-group" style="flex: 0 0 80%; border: none; background: transparent;">
+                    <label style="color: #ffd700; font-size: 1rem; margin-bottom: 10px;">TYPE EXACTLY AS SHOWN (Fix mistakes!):</label>
+                    <input type="text" id="tf-my-input" placeholder="Start typing here..." autocomplete="off" spellcheck="false" onpaste="return false;" style="max-width: 100%; width: 100%; padding: 15px; font-size: 1.5rem; border-color: #ffd700;">
+                </div>
+            </div>
+        </div>
+
+        <div id="tf-results-screen" class="screen">
+            <h1 id="tf-winner-text">GAME OVER</h1>
+            <h3 id="tf-win-reason" style="margin-bottom: 20px; color: #ccc;"></h3>
+            <div class="results-stats">
+                <div class="result-card p1-result">
+                    <h3 id="tf-res-p1-name">PLAYER 1</h3>
+                    <p style="color:#00ff88;">Total Wins: <span id="tf-res-p1-wins">0</span></p>
+                    <p>WPM: <span id="tf-res-p1-wpm">0</span></p>
+                    <p>Accuracy: <span id="tf-res-p1-acc">0</span>%</p>
+                </div>
+                <div class="result-card p2-result">
+                    <h3 id="tf-res-p2-name">PLAYER 2</h3>
+                    <p style="color:#00ff88;">Total Wins: <span id="tf-res-p2-wins">0</span></p>
+                    <p>WPM: <span id="tf-res-p2-wpm">0</span></p>
+                    <p>Accuracy: <span id="tf-res-p2-acc">0</span>%</p>
+                </div>
+            </div>
+            <div style="display: flex; gap: 20px; justify-content: center;">
+                <button id="tf-next-round-btn" class="action-btn hidden" style="background: #00e5ff; color: #000;">Next Round ➜</button>
+                <div id="tf-waiting-next" class="hidden" style="color: #aaa; margin-top: 15px;">Waiting for host...</div>
+                <button class="action-btn back-btn-nav" style="background: #555;">BACK TO LOBBY</button>
+            </div>
+        </div>
+
+        <!-- DRAW & GUESS SCREENS -->
+        <div id="dg-setup-screen" class="screen"><h1 class="logo" style="font-size: 4rem;">DRAW & GUESS</h1><div class="settings-box" style="max-width: 600px;"><div id="dg-drawer-setup"><h2 style="color: #00ff88;">YOUR TURN TO DRAW!</h2><div id="dg-word-choices" class="word-choices"></div></div><div id="dg-guesser-setup" class="hidden"><h2 style="color: #ff3366;">YOUR TURN TO GUESS!</h2></div></div></div>
+        <div id="dg-play-screen" class="screen"><div class="dg-header"><div class="dg-score"><div style="color: #00e5ff;"><span id="dg-p1-name">P1</span>: <span id="dg-p1-score">0</span></div><div style="color: #ff3366;"><span id="dg-p2-name">P2</span>: <span id="dg-p2-score">0</span></div></div><div id="dg-timer" class="dg-timer">60</div><div class="dg-secret-word-hint" id="dg-word-hint-container"></div></div><div class="dg-main"><div class="dg-toolbar" id="dg-toolbar"><button id="dg-tool-pencil" class="tool-btn active">✏️</button><button id="dg-tool-eraser" class="tool-btn">🧽</button><input type="color" id="dg-color-picker" value="#000000"><input type="range" id="dg-brush-size" min="1" max="30" value="5"><button id="dg-tool-clear" class="tool-btn" style="background: #440000; font-size: 1rem;">🗑️ Clear</button></div><div class="dg-canvas-container" id="dg-canvas-container"><canvas id="dg-canvas"></canvas></div></div><div class="dg-footer"><div class="guess-input-container" id="dg-guess-controls"></div><div id="dg-feedback"></div></div></div>
+        <div id="dg-results-screen" class="screen"><h1 id="dg-round-result-text">ROUND OVER!</h1><p id="dg-answer-reveal" style="font-size: 2rem; margin-bottom: 20px;">The word was: <span></span></p><div class="results-stats"><div class="result-card" style="border-color: #00e5ff;"><h3 style="color: #00e5ff;" id="dg-res-p1-name">P1</h3><p>Total: <span id="dg-res-p1-score">0</span> pts</p></div><div class="result-card" style="border-color: #ff3366;"><h3 style="color: #ff3366;" id="dg-res-p2-name">P2</h3><p>Total: <span id="dg-res-p2-score">0</span> pts</p></div></div><div style="display: flex; gap: 20px; justify-content: center;"><button id="dg-next-round-btn" class="action-btn hidden" style="background: #00e5ff; color: #000;">Next Round ➜</button><div id="dg-waiting-next" class="hidden" style="color: #aaa; margin-top: 15px;">Waiting for host...</div><button class="action-btn back-btn-nav" style="background: #555;">BACK TO LOBBY</button></div></div>
+    </div>
+
+    <!-- CARTOON SVG TEMPLATE -->
+    <template id="fighter-svg-template">
+        <svg viewBox="0 0 200 200" class="char-svg">
+            <g class="arm-l-grp"><path class="limb" d="M100,80 Q130,100 120,130" fill="none"/><circle cx="120" cy="130" r="8" class="skin"/></g>
+            <g class="leg-r-grp"><path class="limb" d="M110,130 L115,180" fill="none"/><path class="shoe" d="M105,180 L135,180 A5,5 0 0,1 135,190 L105,190 Z" /></g>
+            <g class="leg-l-grp"><path class="limb" d="M90,130 L85,180" fill="none"/><path class="shoe" d="M75,180 L105,180 A5,5 0 0,1 105,190 L75,190 Z" /></g>
+            <g class="body-grp"><rect x="75" y="70" width="50" height="60" rx="15" class="shirt"/></g>
+            <g class="head-grp">
+                <circle cx="100" cy="45" r="30" class="skin" />
+                <g class="face-normal">
+                    <circle cx="87" cy="40" r="4" fill="#000" /><circle cx="113" cy="40" r="4" fill="#000" />
+                    <path d="M85,55 Q100,65 115,55" fill="none" stroke="#000" stroke-width="3" stroke-linecap="round"/>
+                </g>
+                <g class="face-attack" style="display:none;">
+                    <path d="M82,35 L92,42 M118,35 L108,42" fill="none" stroke="#000" stroke-width="3" stroke-linecap="round"/>
+                    <circle cx="87" cy="42" r="3" fill="#000" /><circle cx="113" cy="42" r="3" fill="#000" />
+                    <ellipse cx="100" cy="55" rx="10" ry="15" fill="#440000" />
+                </g>
+                <g class="face-hurt" style="display:none;">
+                    <path d="M80,35 L95,45 M95,35 L80,45" fill="none" stroke="#000" stroke-width="3" stroke-linecap="round"/>
+                    <path d="M105,35 L120,45 M120,35 L105,45" fill="none" stroke="#000" stroke-width="3" stroke-linecap="round"/>
+                    <circle cx="100" cy="60" r="8" fill="none" stroke="#000" stroke-width="3" />
+                </g>
+                <g class="face-mistake" style="display:none;">
+                    <circle cx="87" cy="40" r="6" fill="#fff" stroke="#000" stroke-width="2"/>
+                    <circle cx="113" cy="40" r="6" fill="#fff" stroke="#000" stroke-width="2"/>
+                    <circle cx="87" cy="40" r="2" fill="#000" /><circle cx="113" cy="40" r="2" fill="#000" />
+                    <path d="M85,55 L95,50 L105,60 L115,55" fill="none" stroke="#000" stroke-width="3" stroke-linecap="round"/>
+                </g>
+                <rect x="70" y="20" width="60" height="10" class="headband" />
+                <path d="M130,25 Q145,15 140,35" fill="none" class="headband-tie" stroke="#000" stroke-width="8" stroke-linecap="round" />
+            </g>
+            <g class="arm-r-grp">
+                <path class="limb" d="M100,80 Q70,100 60,110" fill="none"/>
+                <line class="stick" x1="60" y1="110" x2="20" y2="30" />
+                <circle cx="60" cy="110" r="8" class="skin"/>
+            </g>
+        </svg>
+    </template>
+    
+    <script src="script.js"></script>
+</body>
+</html>
